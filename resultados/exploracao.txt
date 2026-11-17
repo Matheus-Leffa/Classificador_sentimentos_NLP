@@ -1,0 +1,12 @@
+Etapa 1:
+1 - Temos ao todo 260 linhas, divididas igualmente em duas classes do tipo Sentimento, sendo positivo ou negativo.
+2 - Ambas as classes tem tamanhos médios dos textos extremamente semelhantes (7 a 8 palavras).
+3 - Exemplos negativos:
+"Detestei o fone, ruim, nunca mais compro",
+"A embalagem não é excelente",
+"Teclado barulhento e as teclas falham, não recomendo".
+
+Exemplos positivos:
+"Adorei o aplicativo, show",
+"Adorei o atendimento, nota máxima para a equipe",
+"Ficou lindo na sala, combinou perfeitamente com os móveis".
