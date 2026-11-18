@@ -18,7 +18,6 @@
 ---
 
 ## 1. Pré-processamento
-*Quais decisões você tomou (minúsculas, pontuação, números, stopwords)? Qual o tamanho do vocabulário com e sem remoção de stopwords? O que você fez com a palavra "não" e por quê?*
 
 Criei uma função chamada prep() que transforma todas as letras em minúsculas,
 Identifica e extrai apenas palavras compostas por letras de a a z e caracteres acentuados especificados na expressão regular.
@@ -28,7 +27,6 @@ Com as stopwords temos 420 palavras. Sem stopword temos 402 (18 palavras foram r
 A palavra "não" foi mantida pois ela pode mudar completamente o sentido de uma frase.
 
 ## 2. BoW vs. TF-IDF
-*Compare as quatro configurações levando em conta o desvio padrão. As diferenças são relevantes? Qual você escolheu e com base em quê? Explique a diferença conceitual entre as duas representações.*
 
 As 4 configurações possuem um desvio padrão quase equivalente, o que indica que não há uma config expressivamente superior as demais neste aspecto. 
 A ConfigA apresentou o melhor resultado, com F1 médio de 0,8563 e desvio padrão de 0,0926.
@@ -36,7 +34,6 @@ A BoW considera a frequência com que as palavras aparecem em um texto, não imp
 Já a TD-IDF acrescenta pesos às palavras de acordo com a sua frequência e raridade no conjunto inteiro de dados.
 
 ## 3. Avaliação no teste
-*Mostre a matriz de confusão e interprete precisão, recall e F1 de cada classe. Para uma loja, qual erro é mais grave: classificar uma reclamação como elogio ou o contrário? Por que a acurácia é menos enganosa aqui do que no exemplo de fraude da Aula 8?*
 
 ![matriz de Confusão](resultados/matriz_confusao.png)
 
@@ -56,7 +53,6 @@ O erro mais grave é classificar uma reclamação como elogio.
 Esse erro ocorreu 8 vezes e significa que a loja pode deixar de perceber problemas reais de clientes, não responder à reclamação e prejudicar sua reputação. 
 
 ## 4. Validação cruzada vs. divisão única
-*Por que a validação cruzada é mais confiável do que um único conjunto de teste para comparar configurações? Por que a escolha não pode ser feita olhando o teste? O que seria vazamento de dados neste trabalho e como você o evitou?*
 
 Usamos a validação cruzada pois ela avalia cada configuração em diferentes divisões dos dados, reduzindo a influência de uma divisão específica.
 Não devemos escolher olhando o teste porque ele deve simular dados novos que o modelo ainda não conhece.
@@ -65,7 +61,6 @@ Vazamento de dados acontece quando informações que deveriam estar disponíveis
 Neste trabalho, vazamentos foram evitados utilizando Pipeline, que garante que o vetorizador seja ajustado somente com os dados de treinamento de cada divisão da validação cruzada.
 
 ## 5. Análise de erros e palavras influentes
-*Escolha 3 textos de `erros.csv` e explique por que o modelo pode ter errado. Observe as 10 palavras mais influentes de cada classe: há alguma que não carrega sentimento por si só (ex.: palavra funcional ou de domínio)? O que isso diz sobre o que o modelo realmente aprendeu?*
 
 "Ficou lindo na sala, combinou perfeitamente com os móveis"
 Possível motivo do erro: O modelo pode não ter aprendido a associar "lindo" ou "perfeitamente" à avaliação positiva.
@@ -79,7 +74,6 @@ Mas não associou a palavra às características negativas.
 Possível motivo do erro: o modelo pode ter atribuído importância excessiva à palavra "animado", que transmite uma ideia positiva quando analisada isoladamente.
 
 ## 6. Casos difíceis e limitações
-*Com base em `casos_dificeis_predicoes.csv`, como o modelo se saiu em negação, ironia e frases mistas? Explique por que BoW/TF-IDF têm essa limitação, proponha duas melhorias (cite técnicas vistas na Aula 11) e discuta duas limitações do dataset e um risco de usar este modelo em produção.*
 
 Negação: o modelo acertou 2 dos 4 casos. Conseguiu classificar corretamente frases como "Não gostei nada do atendimento" e "Não é ruim, gostei bastante".
 Ironia: o modelo acertou 2 dos 3 casos. Identificou corretamente algumas críticas irônicas, como "Maravilha, mais uma vez a entrega atrasou", mas classificou incorretamente "Que ótimo, o produto chegou quebrado" como positivo.
