@@ -1,313 +1,115 @@
+from pathlib import Path
+
 import pandas as pd
-import re
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import StratifiedKFold, cross_validate
-import numpy as np
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
 
-df = pd.read_csv('data/Avaliacoes.csv')
-
-print(df.head())
-
-print(pd.DataFrame({
-    'Quantidade': df['sentimento'].value_counts(),
-    'Porcentagem': df['sentimento'].value_counts(normalize=True) * 100
-}))
-
-print()
-print("Tamanho médio dos textos por classe")
-df['quantidade_palavras'] = df['texto'].str.split().str.len()
-
-media_palavras = df.groupby('sentimento')['quantidade_palavras'].mean()
-
-print(media_palavras)
-
-STOP = {
-    "o", "a", "os", "as", "um", "uma",
-    "e", "é", "de", "do", "da", "que",
-    "para", "com", "mas", "muito", "foi", "em"
-}
-
-def prep(texto, remover_stopwords = True):
-    toks = re.findall(
-        r"[a-záàâãéêíóôõúç]+",
-        texto.lower()
-    )
-
-    if remover_stopwords:
-        toks = [
-            palavra for palavra in toks
-            if palavra not in STOP
-        ]
-
-    return " ".join(toks)
-
-texto = "O dia esta lindo hoje, mas ontem foi nublado"
-print(prep(texto, False))
-print(prep(texto))
-
-X = df["texto"]
-y = df["sentimento"]
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.25,
-    stratify=y,
-    random_state=42
+from src.analise import (
+    exibir_distribuicao_classes,
+    exibir_tamanho_medio_por_classe,
+    gerar_previsoes_casos_dificeis,
+)
+from src.avaliacao import (
+    gerar_erros,
+    gerar_matriz_confusao,
+    gerar_palavras_influentes,
+    gerar_relatorio_classificacao,
+)
+from src.preprocessamento import prep
+from src.treinamento import (
+    avaliar_configuracoes_no_teste,
+    comparar_configuracoes,
+    dividir_dados,
+    identificar_configuracao_vencedora,
+    treinar_configuracao_vencedora,
 )
 
-configuracoes = {
-    "ConfigA": {
-        "stopwords": False,
-        "vetorizador": CountVectorizer()
-    },
-    "ConfigB": {
-        "stopwords": False,
-        "vetorizador": TfidfVectorizer()
-    },
-    "ConfigC": {
-        "stopwords": True,
-        "vetorizador": CountVectorizer()
-    },
-    "ConfigD": {
-        "stopwords": True,
-        "vetorizador": TfidfVectorizer()
-    }
-}
 
-resultados = {}
+PROJETO_DIR = Path(__file__).resolve().parent
+DATA_DIR = PROJETO_DIR / "data"
+RESULTADOS_DIR = PROJETO_DIR / "resultados"
 
-for nome, config in configuracoes.items():
 
-    preprocessador = FunctionTransformer(
-        lambda textos, remover=config["stopwords"]: [
-            prep(texto, remover_stopwords=remover)
-            for texto in textos
-        ],
-        validate=False
-    )
+def carregar_dados():
+    return pd.read_csv(DATA_DIR / "Avaliacoes.csv")
 
-    pipeline = Pipeline([
-        ("preprocessamento", preprocessador),
-        ("vetorizador", config["vetorizador"]),
-        ("classificador", LogisticRegression(max_iter=1000))
-    ])
 
-    # Treinamento
-    pipeline.fit(X_train, y_train)
+def main():
+    RESULTADOS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Previsão
-    previsoes = pipeline.predict(X_test)
+    df = carregar_dados()
 
-    # Avaliação
-    acuracia = accuracy_score(y_test, previsoes)
+    print(df.head())
+    exibir_distribuicao_classes(df)
+    exibir_tamanho_medio_por_classe(df)
 
-    # Tamanho do vocabulário aprendido no treinamento
-    vocabulario = len(
-        pipeline.named_steps["vetorizador"].vocabulary_
-    )
+    texto_exemplo = "O dia esta lindo hoje, mas ontem foi nublado"
+    print(prep(texto_exemplo, False))
+    print(prep(texto_exemplo))
 
-    resultados[nome] = {
-        "Acurácia": acuracia,
-        "Vocabulário": vocabulario
-    }
-
-    print(f"\n{nome}")
-    print(f"Acurácia: {acuracia:.4f}")
-    print(f"Vocabulário: {vocabulario}")
-
-    print(classification_report(y_test, previsoes))
-
-cv = StratifiedKFold(
-    n_splits=5,
-    shuffle=True,
-    random_state=42
-)
-
-def preprocessar_lote(textos, remover_stopwords=True):
-    return [
-        prep(texto, remover_stopwords=remover_stopwords)
-        for texto in textos
-    ]
-
-resultados = []
-
-for nome, config in configuracoes.items():
-
-    preprocessador = FunctionTransformer(
-        preprocessar_lote,
-        kw_args={"remover_stopwords": config["stopwords"]},
-        validate=False
-    )
-
-    pipeline = Pipeline([
-        ("preprocessamento", preprocessador),
-        ("vetorizador", config["vetorizador"]),
-        ("classificador", LogisticRegression(max_iter=1000))
-    ])
-
-    metricas = cross_validate(
-        pipeline,
+    X_train, X_test, y_train, y_test = dividir_dados(df)
+    avaliar_configuracoes_no_teste(
         X_train,
         y_train,
-        cv=cv,
-        scoring={
-            "acc": "accuracy",
-            "f1": "f1_macro"
-        },
-        n_jobs=-1
+        X_test,
+        y_test,
     )
 
-    pipeline.fit(X_train, y_train)
+    df_resultados = comparar_configuracoes(X_train, y_train)
 
-    vocabulario = len(
-        pipeline.named_steps["vetorizador"].vocabulary_
+    print("------------")
+    print(df_resultados)
+    df_resultados.to_csv(
+        RESULTADOS_DIR / "comparacao.csv",
+        index=False,
     )
 
-    resultados.append({
-        "config": nome,
-        "stopwords": "removidas" if config["stopwords"] else "mantidas",
-        "vetorizador": config["vetorizador"].__class__.__name__,
-        "vocabulario": vocabulario,
-        "acc_cv_media": np.mean(metricas["test_acc"]),
-        "acc_cv_desvio": np.std(metricas["test_acc"]),
-        "f1_cv_media": np.mean(metricas["test_f1"]),
-        "f1_cv_desvio": np.std(metricas["test_f1"])
-    })
+    vencedora = identificar_configuracao_vencedora(df_resultados)
 
-df_resultados = pd.DataFrame(resultados)
+    print("Configuração vencedora:", vencedora["config"])
+    print(
+        f"{vencedora['config']} possui F1 médio: "
+        f"{vencedora['f1_cv_media']}"
+    )
+    print(
+        f"{vencedora['config']} possui Acurácia média: "
+        f"{vencedora['acc_cv_media']}"
+    )
 
-print("------------")
-print(df_resultados)
+    pipeline_vencedora = treinar_configuracao_vencedora(
+        vencedora,
+        X_train,
+        y_train,
+    )
+    previsoes = pipeline_vencedora.predict(X_test)
+    probabilidades = pipeline_vencedora.predict_proba(X_test)
 
-df_resultados.to_csv(
-    "resultados/comparacao.csv",
-    index=False
-)
+    gerar_matriz_confusao(
+        pipeline_vencedora,
+        y_test,
+        previsoes,
+        RESULTADOS_DIR / "matriz_confusao.png",
+    )
+    gerar_relatorio_classificacao(
+        y_test,
+        previsoes,
+        RESULTADOS_DIR / "relatorio_classificacao.txt",
+    )
+    gerar_erros(
+        X_test,
+        y_test,
+        previsoes,
+        probabilidades,
+        RESULTADOS_DIR / "erros.csv",
+    )
+    gerar_palavras_influentes(
+        pipeline_vencedora,
+        RESULTADOS_DIR / "palavras_influentes.csv",
+    )
+    gerar_previsoes_casos_dificeis(
+        pipeline_vencedora,
+        DATA_DIR / "casos_dificeis.csv",
+        RESULTADOS_DIR / "casos_dificeis_predicoes.csv",
+    )
 
-vencedora = df_resultados.iloc[0]
 
-print("Configuração vencedora:", vencedora["config"])
-print(f"{vencedora["config"]} possui F1 médio: {vencedora["f1_cv_media"]}")
-print(f"{vencedora["config"]} possui Acurácia média: {vencedora["acc_cv_media"]}")
-
-pipeline_config_vencedora = Pipeline([
-    ("preprocessamento", FunctionTransformer(
-        preprocessar_lote,
-        kw_args={"remover_stopwords": False},
-        validate=False
-    )),
-    ("vetorizador", CountVectorizer()),
-    ("classificador", LogisticRegression(max_iter=1000))
-])
-
-pipeline_config_vencedora.fit(X_train, y_train)
-previsoes = pipeline_config_vencedora.predict(X_test)
-probabilidades = pipeline_config_vencedora.predict_proba(X_test)
-
-matrizConfusao = confusion_matrix(y_test, previsoes)
-
-disp = ConfusionMatrixDisplay(
-    confusion_matrix=matrizConfusao,
-    display_labels=pipeline_config_vencedora.classes_
-)
-
-disp.plot(cmap="Blues")
-
-plt.title("Matriz de Confusão - Configuração A")
-plt.savefig("resultados/matriz_confusao.png", bbox_inches="tight")
-#plt.show()
-
-relatorio = classification_report(
-    y_test,
-    previsoes
-)
-
-print(relatorio)
-
-with open(
-    "resultados/relatorio_classificacao.txt",
-    "w",
-    encoding="utf-8"
-) as arquivo:
-    arquivo.write(relatorio)
-
-erros = pd.DataFrame({
-    "texto": X_test.values,
-    "real": y_test.values,
-    "previsto": previsoes,
-    "probabilidade": probabilidades.max(axis=1)
-})
-
-erros = erros[erros["real"] != erros["previsto"]]
-
-erros.to_csv(
-    "resultados/erros.csv",
-    index=False,
-    encoding="utf-8-sig"
-)
-
-vetorizador = pipeline_config_vencedora.named_steps["vetorizador"]
-
-classificador = pipeline_config_vencedora.named_steps["classificador"]
-
-palavras = vetorizador.get_feature_names_out()
-
-coeficientes = classificador.coef_[0]
-
-df_palavras = pd.DataFrame({
-    "palavra": palavras,
-    "coeficiente": coeficientes
-})
-
-positivas = df_palavras.nlargest(10, "coeficiente")
-
-negativas = df_palavras.nsmallest(10, "coeficiente")
-
-influentes = pd.concat([
-    positivas.assign(classe="positivo"),
-    negativas.assign(classe="negativo")
-])
-
-influentes.to_csv(
-    "resultados/palavras_influentes.csv",
-    index=False,
-    encoding="utf-8-sig"
-)
-
-casos_dificeis = pd.read_csv("data/casos_dificeis.csv")
-
-previsoes_casos_dificeis = pipeline_config_vencedora.predict(
-    casos_dificeis["texto"]
-)
-
-probabilidades_casos_dificeis = pipeline_config_vencedora.predict_proba(
-    casos_dificeis["texto"]
-)
-
-classes = pipeline_config_vencedora.named_steps["classificador"].classes_
-
-indice_positivo = list(classes).index("positivo")
-
-prob_positivo = probabilidades_casos_dificeis[:, indice_positivo]
-
-df_casos_dificeis = pd.DataFrame({
-    "texto": casos_dificeis["texto"].values,
-    "tipo": casos_dificeis["tipo"].values,
-    "esperado": casos_dificeis["sentimento_esperado"].values,
-    "previsto": previsoes_casos_dificeis,
-    "probabilidade": prob_positivo
-})
-
-df_casos_dificeis.to_csv(
-    "resultados/casos_dificeis_predicoes.csv",
-    index=False,
-    encoding="utf-8-sig"
-)
+if __name__ == "__main__":
+    main()
