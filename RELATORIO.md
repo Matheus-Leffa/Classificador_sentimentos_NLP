@@ -58,17 +58,41 @@ Esse erro ocorreu 8 vezes e significa que a loja pode deixar de perceber problem
 ## 4. Validação cruzada vs. divisão única
 *Por que a validação cruzada é mais confiável do que um único conjunto de teste para comparar configurações? Por que a escolha não pode ser feita olhando o teste? O que seria vazamento de dados neste trabalho e como você o evitou?*
 
-(sua resposta)
+Usamos a validação cruzada pois ela avalia cada configuração em diferentes divisões dos dados, reduzindo a influência de uma divisão específica.
+Não devemos escolher olhando o teste porque ele deve simular dados novos que o modelo ainda não conhece.
+Se escolhermos o teste, estaremos adaptando nossas decisões ao teste, comprometendo a avaliação.
+Vazamento de dados acontece quando informações que deveriam estar disponíveis apenas na avaliação acabam influenciando o treinamento.
+Neste trabalho, vazamentos foram evitados utilizando Pipeline, que garante que o vetorizador seja ajustado somente com os dados de treinamento de cada divisão da validação cruzada.
 
 ## 5. Análise de erros e palavras influentes
 *Escolha 3 textos de `erros.csv` e explique por que o modelo pode ter errado. Observe as 10 palavras mais influentes de cada classe: há alguma que não carrega sentimento por si só (ex.: palavra funcional ou de domínio)? O que isso diz sobre o que o modelo realmente aprendeu?*
 
-(sua resposta)
+"Ficou lindo na sala, combinou perfeitamente com os móveis"
+Possível motivo do erro: O modelo pode não ter aprendido a associar "lindo" ou "perfeitamente" à avaliação positiva.
+Talvez tenha atribuído pesos demasiados a outras palavras do texto.
+
+"Panela de péssima qualidade, a comida gruda e queima"
+Possível motivo do erro: O modelo pode ter associado "comida" como algo positivo devido aos testes. 
+Mas não associou a palavra às características negativas.
+
+"Cheguei animado, mas me arrependi, tudo estava sujo"
+Possível motivo do erro: o modelo pode ter atribuído importância excessiva à palavra "animado", que transmite uma ideia positiva quando analisada isoladamente.
 
 ## 6. Casos difíceis e limitações
 *Com base em `casos_dificeis_predicoes.csv`, como o modelo se saiu em negação, ironia e frases mistas? Explique por que BoW/TF-IDF têm essa limitação, proponha duas melhorias (cite técnicas vistas na Aula 11) e discuta duas limitações do dataset e um risco de usar este modelo em produção.*
 
-(sua resposta)
+Negação: o modelo acertou 2 dos 4 casos. Conseguiu classificar corretamente frases como "Não gostei nada do atendimento" e "Não é ruim, gostei bastante".
+Ironia: o modelo acertou 2 dos 3 casos. Identificou corretamente algumas críticas irônicas, como "Maravilha, mais uma vez a entrega atrasou", mas classificou incorretamente "Que ótimo, o produto chegou quebrado" como positivo.
+Frases mistas: o modelo errou os 2 casos apresentados. Nas frases que apresentam uma característica positiva e outra negativa, ele classificou o texto inteiro como positivo.
+
+BoW e TF-IDF contabilizam e dão pesos as palavras, respectivamente, mas não compreender o contexto em que as palavras estão inseridas.
+Assim, palavras como "ótimo" podem levar a uma avaliação positiva mesmo sendo usadas sarcasticamente.
+
+Melhorias possível:
+N-gramas: utilizar conjuntos de duas ou mais palavras para melhorar a compreensão de contexto do modelo.
+Por exemplo: "não gostei", "muito bom" e etc...
+
+Similaridade de cosseno: O BoW e o TF-IDF transformam cada texto em um vetor numérico. A similaridade do cosseno compara esses vetores para verificar o quanto eles apontam na mesma direção.
 
 ---
 
@@ -77,4 +101,4 @@ Esse erro ocorreu 8 vezes e significa que a loja pode deixar de perceber problem
 Marque uma opção e complete:
 
 - [ ] Não usei IA generativa em nenhuma parte deste trabalho.
-- [ ] Usei IA generativa **somente** para: ______________ (não é permitido gerar código ou relatório).
+- [X] Usei IA generativa **somente** para: consultas de sintaxe, uso de funções desconhecidas (sklearn principalmente) e como fonte de consulta e resolução de dúvidas.(não é permitido gerar código ou relatório).
