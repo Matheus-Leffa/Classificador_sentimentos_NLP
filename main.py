@@ -281,3 +281,33 @@ influentes.to_csv(
     index=False,
     encoding="utf-8-sig"
 )
+
+casos_dificeis = pd.read_csv("data/casos_dificeis.csv")
+
+previsoes_casos_dificeis = pipeline_config_vencedora.predict(
+    casos_dificeis["texto"]
+)
+
+probabilidades_casos_dificeis = pipeline_config_vencedora.predict_proba(
+    casos_dificeis["texto"]
+)
+
+classes = pipeline_config_vencedora.named_steps["classificador"].classes_
+
+indice_positivo = list(classes).index("positivo")
+
+prob_positivo = probabilidades_casos_dificeis[:, indice_positivo]
+
+df_casos_dificeis = pd.DataFrame({
+    "texto": casos_dificeis["texto"].values,
+    "tipo": casos_dificeis["tipo"].values,
+    "esperado": casos_dificeis["sentimento_esperado"].values,
+    "previsto": previsoes_casos_dificeis,
+    "probabilidade": prob_positivo
+})
+
+df_casos_dificeis.to_csv(
+    "resultados/casos_dificeis_predicoes.csv",
+    index=False,
+    encoding="utf-8-sig"
+)
