@@ -8,7 +8,8 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import StratifiedKFold, cross_validate
 import numpy as np
-import os
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 df = pd.read_csv('data/Avaliacoes.csv')
 
@@ -186,8 +187,6 @@ df_resultados = pd.DataFrame(resultados)
 print("------------")
 print(df_resultados)
 
-os.makedirs("resultados", exist_ok=True)
-
 df_resultados.to_csv(
     "resultados/comparacao.csv",
     index=False
@@ -199,3 +198,86 @@ print("Configuração vencedora:", vencedora["config"])
 print(f"{vencedora["config"]} possui F1 médio: {vencedora["f1_cv_media"]}")
 print(f"{vencedora["config"]} possui Acurácia média: {vencedora["acc_cv_media"]}")
 
+pipeline_config_vencedora = Pipeline([
+    ("preprocessamento", FunctionTransformer(
+        preprocessar_lote,
+        kw_args={"remover_stopwords": False},
+        validate=False
+    )),
+    ("vetorizador", CountVectorizer()),
+    ("classificador", LogisticRegression(max_iter=1000))
+])
+
+pipeline_config_vencedora.fit(X_train, y_train)
+previsoes = pipeline_config_vencedora.predict(X_test)
+probabilidades = pipeline_config_vencedora.predict_proba(X_test)
+
+matrizConfusao = confusion_matrix(y_test, previsoes)
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=matrizConfusao,
+    display_labels=pipeline_config_vencedora.classes_
+)
+
+disp.plot(cmap="Blues")
+
+plt.title("Matriz de Confusão - Configuração A")
+plt.savefig("resultados/matriz_confusao.png", bbox_inches="tight")
+#plt.show()
+
+relatorio = classification_report(
+    y_test,
+    previsoes
+)
+
+print(relatorio)
+
+with open(
+    "resultados/relatorio_classificacao.txt",
+    "w",
+    encoding="utf-8"
+) as arquivo:
+    arquivo.write(relatorio)
+
+erros = pd.DataFrame({
+    "texto": X_test.values,
+    "real": y_test.values,
+    "previsto": previsoes,
+    "probabilidade": probabilidades.max(axis=1)
+})
+
+erros = erros[erros["real"] != erros["previsto"]]
+
+erros.to_csv(
+    "resultados/erros.csv",
+    index=False,
+    encoding="utf-8-sig"
+)
+
+vetorizador = pipeline_config_vencedora.named_steps["vetorizador"]
+
+classificador = pipeline_config_vencedora.named_steps["classificador"]
+
+palavras = vetorizador.get_feature_names_out()
+
+coeficientes = classificador.coef_[0]
+
+df_palavras = pd.DataFrame({
+    "palavra": palavras,
+    "coeficiente": coeficientes
+})
+
+positivas = df_palavras.nlargest(10, "coeficiente")
+
+negativas = df_palavras.nsmallest(10, "coeficiente")
+
+influentes = pd.concat([
+    positivas.assign(classe="positivo"),
+    negativas.assign(classe="negativo")
+])
+
+influentes.to_csv(
+    "resultados/palavras_influentes.csv",
+    index=False,
+    encoding="utf-8-sig"
+)
