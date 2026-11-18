@@ -6,6 +6,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import StratifiedKFold, cross_validate
+import numpy as np
+import os
 
 df = pd.read_csv('data/Avaliacoes.csv')
 
@@ -120,3 +123,79 @@ for nome, config in configuracoes.items():
     print(f"Vocabulário: {vocabulario}")
 
     print(classification_report(y_test, previsoes))
+
+cv = StratifiedKFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)
+
+def preprocessar_lote(textos, remover_stopwords=True):
+    return [
+        prep(texto, remover_stopwords=remover_stopwords)
+        for texto in textos
+    ]
+
+resultados = []
+
+for nome, config in configuracoes.items():
+
+    preprocessador = FunctionTransformer(
+        preprocessar_lote,
+        kw_args={"remover_stopwords": config["stopwords"]},
+        validate=False
+    )
+
+    pipeline = Pipeline([
+        ("preprocessamento", preprocessador),
+        ("vetorizador", config["vetorizador"]),
+        ("classificador", LogisticRegression(max_iter=1000))
+    ])
+
+    metricas = cross_validate(
+        pipeline,
+        X_train,
+        y_train,
+        cv=cv,
+        scoring={
+            "acc": "accuracy",
+            "f1": "f1_macro"
+        },
+        n_jobs=-1
+    )
+
+    pipeline.fit(X_train, y_train)
+
+    vocabulario = len(
+        pipeline.named_steps["vetorizador"].vocabulary_
+    )
+
+    resultados.append({
+        "config": nome,
+        "stopwords": "removidas" if config["stopwords"] else "mantidas",
+        "vetorizador": config["vetorizador"].__class__.__name__,
+        "vocabulario": vocabulario,
+        "acc_cv_media": np.mean(metricas["test_acc"]),
+        "acc_cv_desvio": np.std(metricas["test_acc"]),
+        "f1_cv_media": np.mean(metricas["test_f1"]),
+        "f1_cv_desvio": np.std(metricas["test_f1"])
+    })
+
+df_resultados = pd.DataFrame(resultados)
+
+print("------------")
+print(df_resultados)
+
+os.makedirs("resultados", exist_ok=True)
+
+df_resultados.to_csv(
+    "resultados/comparacao.csv",
+    index=False
+)
+
+vencedora = df_resultados.iloc[0]
+
+print("Configuração vencedora:", vencedora["config"])
+print(f"{vencedora["config"]} possui F1 médio: {vencedora["f1_cv_media"]}")
+print(f"{vencedora["config"]} possui Acurácia média: {vencedora["acc_cv_media"]}")
+
